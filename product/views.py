@@ -16,12 +16,11 @@ import os
 import base64
 from rest_framework.response import Response
 # Create your views here.
-AES_KEY = settings.SECRET_KEY
+AES_KEY = os.urandom(16) 
 
 def encrypt_response(data):
     json_data = json.dumps(data).encode('utf-8')
-    iv = os.urandom(12)
-    print(AES_KEY)
+    iv = os.urandom(12)  # 96-bit IV for AES-GCM
     aesgcm = AESGCM(AES_KEY)
     encrypt_data = aesgcm.encrypt(iv, json_data, None)
     
