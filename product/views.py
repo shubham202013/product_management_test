@@ -5,16 +5,30 @@ from .serializers import CategorySerializer, registerUserSerializer, ProductSeri
 from django.contrib.auth.models import User
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
+from django.conf import settings
 
 import pandas as pd
 from django.http import HttpResponse
 import json
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
-
+from celery import shared_task
+import os
+import base64
+from rest_framework.response import Response
 # Create your views here.
+AES_KEY = settings.SECRET_KEY
 
 def encrypt_response(data):
-    json_data = json.dumps(data).encode()
+    json_data = json.dumps(data).encode('utf-8')
+    iv = os.urandom(12)
+    print(AES_KEY)
+    aesgcm = AESGCM(AES_KEY)
+    encrypt_data = aesgcm.encrypt(iv, json_data, None)
+    
+    return {
+        'iv': base64.b64encode(iv).decode(),
+        'data': base64.b64encode(encrypt_data).decode()
+    }
 
 class CategoryListView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated]
@@ -22,6 +36,15 @@ class CategoryListView(generics.ListCreateAPIView):
     
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
+    
+    def get(self, request):
+        categories = Category.objects.all()
+        serializer = self.get_serializer(categories, many=True)
+        
+        # Encrypt the response data
+        encrypted_data = encrypt_response(serializer.data)
+        
+        return Response(encrypted_data)
     
 class CategoryDetailView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [IsAuthenticated]
@@ -72,3 +95,35 @@ class ExportProductCSV(views.APIView):
         products_df.to_csv(path_or_buf=response, index=False)
         
         return response
+    
+class ImportProduct(views.APIView):
+    
+    # permission_classes = [IsAuthenticated]
+    # authentication_classes = [JWTAuthentication]   
+    
+    def get(self, request):
+        return render(request, 'import_product.html')
+    
+    def post(self, request):
+        
+        count = request.data.get('number_of_products')
+        insert_product_task.delay(count)
+        return render(request, 'import_product.html', {'message': f'{count} products are being inserted.'})
+    
+    
+@shared_task
+def insert_product_task(count):
+    
+    category = Category.objects.get(id=1)  # Assuming you have a category with ID 1
+    
+    for i in range(int(count)):
+        product = Product(
+            title=f'Product {i}',
+            description='Description {i}',
+            price=100.00,
+            status='active',
+            Category_id=category,  # Assuming you have a category with ID 1
+        )
+        product.save()
+        
+    return f'{count} products inserted successfully'

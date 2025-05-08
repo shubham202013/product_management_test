@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import CategoryListView, CategoryDetailView, UserRegisterView, ProductListView, ProductDetailView, ExportProductCSV
+from .views import CategoryListView, CategoryDetailView, UserRegisterView, ProductListView, ProductDetailView, ExportProductCSV, ImportProduct
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 urlpatterns = [   
@@ -11,5 +11,6 @@ urlpatterns = [
    path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
    path('product/', ProductListView.as_view(), name='product-list'),
    path('product/<int:pk>/', ProductDetailView.as_view(), name='product-detail'),
-   path('product/export/csv/', ExportProductCSV.as_view(), name='export-product-csv')
+   path('product/export/csv/', ExportProductCSV.as_view(), name='export-product-csv'),
+   path('product/import', ImportProduct.as_view(), name='import-product-csv')
 ]
